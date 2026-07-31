@@ -183,7 +183,10 @@ h1{font-family:'Fraunces',serif;font-weight:700;font-size:clamp(28px,5vw,40px);m
     </div>
     <div class="footer-row">
       <span class="exit-link" id="exit-link">← Konu listesine dön</span>
-      <button class="next-btn" id="next-btn" style="display:none">Sonraki →</button>
+      <div style="display:flex;gap:10px">
+        <button class="next-btn" id="prev-btn" style="display:none;background:#8a7a53">← Önceki</button>
+        <button class="next-btn" id="next-btn" style="display:none">Sonraki →</button>
+      </div>
     </div>
   </div>
 
@@ -257,7 +260,8 @@ function shuffle(arr){
 
 function startTopic(topicName){
   const qs = shuffle(ALL.filter(q=>q.topic===topicName));
-  session = {topic: topicName, questions: qs, idx: 0, correct: 0, wrong: 0};
+  // records[i] holds the user's answer state for question i, or null if unanswered yet
+  session = {topic: topicName, questions: qs, idx: 0, records: new Array(qs.length).fill(null)};
   showView('view-quiz');
   renderQuestion();
 }
@@ -269,13 +273,20 @@ function showView(id){
 
 function renderQuestion(){
   const q = session.questions[session.idx];
+  const record = session.records[session.idx];
+
   document.getElementById('quiz-topic-label').textContent = session.topic;
   document.getElementById('quiz-progress-label').textContent = `${session.idx+1} / ${session.questions.length}`;
   document.getElementById('progress-fill').style.width = `${(session.idx/session.questions.length)*100}%`;
   document.getElementById('q-num').textContent = `Soru #${q.id}`;
   document.getElementById('q-text').textContent = q.question;
-  document.getElementById('next-btn').style.display = 'none';
   document.getElementById('self-mark').classList.remove('show');
+
+  const prevBtn = document.getElementById('prev-btn');
+  const nextBtn = document.getElementById('next-btn');
+  prevBtn.style.display = session.idx > 0 ? 'inline-block' : 'none';
+  nextBtn.textContent = (session.idx === session.questions.length - 1) ? 'Bitir →' : 'Sonraki →';
+  nextBtn.style.display = record ? 'inline-block' : 'none';
 
   const body = document.getElementById('q-body');
   body.innerHTML = '';
@@ -287,7 +298,14 @@ function renderQuestion(){
       const btn = document.createElement('button');
       btn.className = 'option';
       btn.innerHTML = `<span class="letter">${String.fromCharCode(65+i)}</span><span>${opt}</span>`;
-      btn.onclick = () => selectMcq(i, q, opts);
+      if(record){
+        // already answered earlier: render locked review state
+        btn.classList.add('locked');
+        if(i === q.correct_index) btn.classList.add('correct');
+        else if(i === record.selected) btn.classList.add('wrong');
+      } else {
+        btn.onclick = () => selectMcq(i, q, opts);
+      }
       opts.appendChild(btn);
     });
     body.appendChild(opts);
@@ -300,45 +318,55 @@ function renderQuestion(){
     const reveal = document.createElement('div');
     reveal.className = 'answer-reveal';
     reveal.textContent = q.answer;
-    btn.onclick = () => {
-      reveal.classList.add('show');
-      btn.style.display = 'none';
-      document.getElementById('self-mark').classList.add('show');
-    };
     box.appendChild(btn);
     box.appendChild(reveal);
     body.appendChild(box);
 
-    document.getElementById('mark-correct-btn').onclick = () => { session.correct++; nextOrShowNext(); };
-    document.getElementById('mark-wrong-btn').onclick = () => { session.wrong++; nextOrShowNext(); };
+    if(record){
+      // already answered: show revealed answer + which mark was chosen
+      reveal.classList.add('show');
+      btn.style.display = 'none';
+      const note = document.createElement('div');
+      note.style.marginTop = '10px';
+      note.style.fontFamily = "'IBM Plex Mono', monospace";
+      note.style.fontSize = '12.5px';
+      note.style.color = record.mark === 'correct' ? '#3c5f42' : '#8a2b2b';
+      note.textContent = record.mark === 'correct' ? '✓ Doğru bildim olarak işaretlendi' : '✗ Yanlış bildim olarak işaretlendi';
+      box.appendChild(note);
+    } else {
+      btn.onclick = () => {
+        reveal.classList.add('show');
+        btn.style.display = 'none';
+        document.getElementById('self-mark').classList.add('show');
+      };
+      document.getElementById('mark-correct-btn').onclick = () => { setOpenMark(q, 'correct'); };
+      document.getElementById('mark-wrong-btn').onclick = () => { setOpenMark(q, 'wrong'); };
+    }
   }
 }
 
 function selectMcq(i, q, optsContainer){
-  const buttons = optsContainer.querySelectorAll('.option');
-  buttons.forEach(b => b.classList.add('locked'));
-  if(i === q.correct_index){
-    buttons[i].classList.add('correct');
-    session.correct++;
-  } else {
-    buttons[i].classList.add('wrong');
-    buttons[q.correct_index].classList.add('correct');
-    session.wrong++;
-  }
-  buttons.forEach(b => b.onclick = null);
-  document.getElementById('next-btn').style.display = 'inline-block';
+  session.records[session.idx] = { selected: i, correct: i === q.correct_index };
+  renderQuestion();
 }
 
-function nextOrShowNext(){
-  document.getElementById('self-mark').classList.remove('show');
-  document.getElementById('next-btn').style.display = 'inline-block';
+function setOpenMark(q, mark){
+  session.records[session.idx] = { mark: mark, correct: mark === 'correct' };
+  renderQuestion();
 }
 
 document.getElementById('next-btn').onclick = () => {
-  session.idx++;
-  if(session.idx >= session.questions.length){
+  if(session.idx >= session.questions.length - 1){
     showResult();
   } else {
+    session.idx++;
+    renderQuestion();
+  }
+};
+
+document.getElementById('prev-btn').onclick = () => {
+  if(session.idx > 0){
+    session.idx--;
     renderQuestion();
   }
 };
@@ -350,8 +378,9 @@ document.getElementById('retry-btn').onclick = () => startTopic(session.topic);
 function showResult(){
   showView('view-result');
   const total = session.questions.length;
-  document.getElementById('result-score').textContent = `${session.correct}/${total}`;
-  const pct = Math.round((session.correct/total)*100);
+  const correct = session.records.filter(r => r && r.correct).length;
+  document.getElementById('result-score').textContent = `${correct}/${total}`;
+  const pct = Math.round((correct/total)*100);
   let msg;
   if(pct >= 85) msg = 'Mükemmel! Bu konuyu iyi biliyorsun.';
   else if(pct >= 60) msg = 'İyi gidiyorsun, birkaç tekrar daha faydalı olur.';
