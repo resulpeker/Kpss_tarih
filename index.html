@@ -1,0 +1,365 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ferman · KPSS Tarih Soru Bankası</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Source+Serif+4:ital,wght@0,400;0,600;1,400&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#211a14;
+  --parchment:#efe6d3;
+  --parchment-dark:#e2d5b8;
+  --seal:#8a2b2b;
+  --seal-dark:#6e2020;
+  --gold:#a9822f;
+  --line:#c9b98e;
+  --green:#3c5f42;
+  --paper-shadow: rgba(33,26,20,.15);
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--parchment);
+  background-image:
+    radial-gradient(ellipse at top left, rgba(169,130,47,.10), transparent 55%),
+    radial-gradient(ellipse at bottom right, rgba(138,43,43,.08), transparent 55%);
+  color:var(--ink);
+  font-family:'Source Serif 4', serif;
+  min-height:100vh;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:920px;margin:0 auto;padding:32px 20px 100px}
+
+/* Header: tugra-like seal + title */
+header.top{display:flex;align-items:center;gap:18px;margin-bottom:8px;padding-bottom:22px;border-bottom:3px double var(--line)}
+.seal{
+  width:56px;height:56px;border-radius:50%;
+  background:radial-gradient(circle at 35% 30%, #a63636, var(--seal-dark));
+  border:2px solid var(--gold);
+  display:flex;align-items:center;justify-content:center;
+  color:#f3e6c8;font-family:'Fraunces',serif;font-weight:700;font-size:22px;
+  flex-shrink:0;
+  box-shadow:0 2px 6px var(--paper-shadow);
+}
+h1{font-family:'Fraunces',serif;font-weight:700;font-size:clamp(28px,5vw,40px);margin:0;letter-spacing:.5px}
+.subtitle{font-family:'IBM Plex Mono',monospace;font-size:12.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--seal);margin-top:4px}
+
+/* View management */
+.view{display:none}
+.view.active{display:block}
+
+/* Topic list = "ledger" */
+.ledger-note{font-size:15px;color:#5c4f3d;margin:22px 0 18px;line-height:1.6}
+.ledger-note b{color:var(--ink)}
+.topic-grid{display:grid;grid-template-columns:1fr;gap:10px}
+.topic-row{
+  display:flex;align-items:center;gap:14px;
+  background:var(--parchment-dark);
+  border:1px solid var(--line);
+  border-left:5px solid var(--gold);
+  padding:14px 16px;border-radius:3px;cursor:pointer;
+  transition:transform .12s ease, box-shadow .12s ease, border-color .12s ease;
+}
+.topic-row:hover{transform:translateX(3px);box-shadow:2px 3px 10px var(--paper-shadow);border-left-color:var(--seal)}
+.topic-num{font-family:'IBM Plex Mono',monospace;color:var(--gold);font-size:13px;min-width:26px}
+.topic-name{flex:1;font-weight:600;font-size:15.5px;line-height:1.35}
+.topic-meta{font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:#7a6c54;text-align:right;white-space:nowrap}
+.badge-mcq{display:inline-block;margin-top:3px;font-size:10px;background:var(--green);color:#f3e9d0;padding:2px 7px;border-radius:2px;letter-spacing:.05em}
+.badge-open{display:inline-block;margin-top:3px;font-size:10px;background:#8a7a53;color:#f3e9d0;padding:2px 7px;border-radius:2px;letter-spacing:.05em}
+
+/* Quiz view */
+.quiz-header{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px}
+.quiz-topic-label{font-family:'IBM Plex Mono',monospace;font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--seal)}
+.progress-track{height:6px;background:var(--parchment-dark);border:1px solid var(--line);border-radius:3px;overflow:hidden;margin:10px 0 26px}
+.progress-fill{height:100%;background:linear-gradient(90deg,var(--gold),var(--seal));width:0%;transition:width .25s ease}
+
+.card{
+  background:#f7f1e2;
+  border:1px solid var(--line);
+  border-radius:4px;
+  padding:30px 28px;
+  box-shadow:0 3px 14px var(--paper-shadow);
+  position:relative;
+}
+.card::before{
+  content:'';position:absolute;top:0;left:24px;right:24px;height:3px;
+  background:repeating-linear-gradient(90deg,var(--gold) 0 8px, transparent 8px 14px);
+  opacity:.5;
+}
+.q-num{font-family:'IBM Plex Mono',monospace;font-size:12px;color:#8a7a53;margin-bottom:10px}
+.q-text{font-family:'Fraunces',serif;font-size:clamp(19px,2.6vw,23px);line-height:1.45;font-weight:600;margin-bottom:24px}
+
+.options{display:flex;flex-direction:column;gap:10px}
+.option{
+  text-align:left;
+  background:var(--parchment);
+  border:1.5px solid var(--line);
+  border-radius:3px;
+  padding:13px 16px;
+  font-family:'Source Serif 4',serif;
+  font-size:15.5px;
+  cursor:pointer;
+  display:flex;gap:12px;align-items:flex-start;
+  transition:background .12s ease, border-color .12s ease;
+}
+.option:hover:not(.locked){background:#e6d9ba;border-color:var(--gold)}
+.option .letter{font-family:'IBM Plex Mono',monospace;font-weight:600;color:var(--seal);flex-shrink:0}
+.option.correct{background:#dce8dc;border-color:var(--green);}
+.option.wrong{background:#ecd6d6;border-color:var(--seal);}
+.option.locked{cursor:default}
+
+.open-answer-box{margin-top:6px}
+.reveal-btn, .next-btn, .primary-btn{
+  font-family:'IBM Plex Mono',monospace;
+  background:var(--seal);color:#f3e9d0;border:none;
+  padding:12px 22px;border-radius:3px;cursor:pointer;font-size:13px;
+  letter-spacing:.05em;text-transform:uppercase;
+  transition:background .12s ease;
+}
+.reveal-btn:hover,.next-btn:hover,.primary-btn:hover{background:var(--seal-dark)}
+.answer-reveal{
+  margin-top:18px;padding:16px 18px;background:#e8dfc4;border-left:4px solid var(--green);
+  border-radius:2px;font-size:15.5px;line-height:1.5;display:none;
+}
+.answer-reveal.show{display:block}
+.self-mark{margin-top:14px;display:none;gap:10px}
+.self-mark.show{display:flex}
+.self-mark button{
+  font-family:'IBM Plex Mono',monospace;font-size:12.5px;padding:9px 16px;border-radius:3px;border:1.5px solid var(--line);
+  background:var(--parchment);cursor:pointer;
+}
+.self-mark button.mark-correct:hover{border-color:var(--green);background:#dce8dc}
+.self-mark button.mark-wrong:hover{border-color:var(--seal);background:#ecd6d6}
+
+.footer-row{display:flex;justify-content:space-between;align-items:center;margin-top:22px}
+.exit-link{font-family:'IBM Plex Mono',monospace;font-size:12px;color:#8a7a53;text-decoration:none;cursor:pointer}
+.exit-link:hover{color:var(--seal)}
+
+/* Result view */
+.result-card{background:#f7f1e2;border:1px solid var(--line);border-radius:4px;padding:40px 32px;text-align:center;box-shadow:0 3px 14px var(--paper-shadow)}
+.result-score{font-family:'Fraunces',serif;font-size:64px;font-weight:700;color:var(--seal);line-height:1}
+.result-label{font-family:'IBM Plex Mono',monospace;font-size:13px;text-transform:uppercase;letter-spacing:.1em;color:#7a6c54;margin-top:8px}
+.result-detail{margin-top:22px;font-size:15.5px;color:#5c4f3d}
+
+@media(max-width:600px){
+  .wrap{padding:20px 14px 80px}
+  .card{padding:22px 18px}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="seal">T</div>
+    <div>
+      <h1>Ferman</h1>
+      <div class="subtitle">KPSS Tarih · 4109 Soruluk Kayıt Defteri</div>
+    </div>
+  </header>
+
+  <!-- TOPIC SELECT VIEW -->
+  <div id="view-topics" class="view active">
+    <p class="ledger-note" id="intro-note">Yükleniyor…</p>
+    <div class="topic-grid" id="topic-grid"></div>
+  </div>
+
+  <!-- QUIZ VIEW -->
+  <div id="view-quiz" class="view">
+    <div class="quiz-header">
+      <span class="quiz-topic-label" id="quiz-topic-label"></span>
+      <span class="quiz-topic-label" id="quiz-progress-label"></span>
+    </div>
+    <div class="progress-track"><div class="progress-fill" id="progress-fill"></div></div>
+    <div class="card">
+      <div class="q-num" id="q-num"></div>
+      <div class="q-text" id="q-text"></div>
+      <div id="q-body"></div>
+      <div class="self-mark" id="self-mark">
+        <button class="mark-correct" id="mark-correct-btn">✓ Doğru bildim</button>
+        <button class="mark-wrong" id="mark-wrong-btn">✗ Yanlış bildim</button>
+      </div>
+    </div>
+    <div class="footer-row">
+      <span class="exit-link" id="exit-link">← Konu listesine dön</span>
+      <button class="next-btn" id="next-btn" style="display:none">Sonraki →</button>
+    </div>
+  </div>
+
+  <!-- RESULT VIEW -->
+  <div id="view-result" class="view">
+    <div class="result-card">
+      <div class="result-score" id="result-score">0/0</div>
+      <div class="result-label">Doğru Cevap</div>
+      <div class="result-detail" id="result-detail"></div>
+      <div style="margin-top:28px;display:flex;gap:12px;justify-content:center">
+        <button class="primary-btn" id="retry-btn">↻ Bu konuyu tekrar çöz</button>
+        <button class="primary-btn" id="back-btn">≡ Konu listesi</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+let ALL = [];
+let TOPICS = [];
+let session = null; // {topic, questions:[], idx, correct, wrong}
+
+async function init(){
+  const res = await fetch('questions.json');
+  ALL = await res.json();
+  const map = new Map();
+  for(const q of ALL){
+    if(!map.has(q.topic)) map.set(q.topic, {name:q.topic, total:0, mcq:0});
+    const t = map.get(q.topic);
+    t.total++;
+    if(q.type === 'mcq') t.mcq++;
+  }
+  TOPICS = [...map.values()];
+  renderTopics();
+}
+
+function renderTopics(){
+  const totalMcq = ALL.filter(q=>q.type==='mcq').length;
+  document.getElementById('intro-note').innerHTML =
+    `<b>${ALL.length}</b> soru, <b>${TOPICS.length}</b> konu başlığı halinde derlendi. ` +
+    `Şu an <b>${totalMcq}</b> soru çoktan seçmeli test modunda; kalan sorular “cevabı gör” modunda çalışır ve zamanla teste dönüştürülüyor.`;
+  const grid = document.getElementById('topic-grid');
+  grid.innerHTML = '';
+  TOPICS.forEach((t, i) => {
+    const row = document.createElement('div');
+    row.className = 'topic-row';
+    const isFullMcq = t.mcq === t.total;
+    const badge = isFullMcq
+      ? `<span class="badge-mcq">TEST · ${t.total} soru</span>`
+      : (t.mcq > 0
+          ? `<span class="badge-open">KARIŞIK · ${t.mcq}/${t.total} test</span>`
+          : `<span class="badge-open">CEVABI GÖR · ${t.total} soru</span>`);
+    row.innerHTML = `
+      <div class="topic-num">${String(i+1).padStart(2,'0')}</div>
+      <div class="topic-name">${t.name}<br>${badge}</div>
+      <div class="topic-meta">${t.total} soru</div>
+    `;
+    row.onclick = () => startTopic(t.name);
+    grid.appendChild(row);
+  });
+}
+
+function shuffle(arr){
+  const a = arr.slice();
+  for(let i=a.length-1;i>0;i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [a[i],a[j]]=[a[j],a[i]];
+  }
+  return a;
+}
+
+function startTopic(topicName){
+  const qs = shuffle(ALL.filter(q=>q.topic===topicName));
+  session = {topic: topicName, questions: qs, idx: 0, correct: 0, wrong: 0};
+  showView('view-quiz');
+  renderQuestion();
+}
+
+function showView(id){
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function renderQuestion(){
+  const q = session.questions[session.idx];
+  document.getElementById('quiz-topic-label').textContent = session.topic;
+  document.getElementById('quiz-progress-label').textContent = `${session.idx+1} / ${session.questions.length}`;
+  document.getElementById('progress-fill').style.width = `${(session.idx/session.questions.length)*100}%`;
+  document.getElementById('q-num').textContent = `Soru #${q.id}`;
+  document.getElementById('q-text').textContent = q.question;
+  document.getElementById('next-btn').style.display = 'none';
+  document.getElementById('self-mark').classList.remove('show');
+
+  const body = document.getElementById('q-body');
+  body.innerHTML = '';
+
+  if(q.type === 'mcq'){
+    const opts = document.createElement('div');
+    opts.className = 'options';
+    q.options.forEach((opt, i) => {
+      const btn = document.createElement('button');
+      btn.className = 'option';
+      btn.innerHTML = `<span class="letter">${String.fromCharCode(65+i)}</span><span>${opt}</span>`;
+      btn.onclick = () => selectMcq(i, q, opts);
+      opts.appendChild(btn);
+    });
+    body.appendChild(opts);
+  } else {
+    const box = document.createElement('div');
+    box.className = 'open-answer-box';
+    const btn = document.createElement('button');
+    btn.className = 'reveal-btn';
+    btn.textContent = 'Cevabı göster';
+    const reveal = document.createElement('div');
+    reveal.className = 'answer-reveal';
+    reveal.textContent = q.answer;
+    btn.onclick = () => {
+      reveal.classList.add('show');
+      btn.style.display = 'none';
+      document.getElementById('self-mark').classList.add('show');
+    };
+    box.appendChild(btn);
+    box.appendChild(reveal);
+    body.appendChild(box);
+
+    document.getElementById('mark-correct-btn').onclick = () => { session.correct++; nextOrShowNext(); };
+    document.getElementById('mark-wrong-btn').onclick = () => { session.wrong++; nextOrShowNext(); };
+  }
+}
+
+function selectMcq(i, q, optsContainer){
+  const buttons = optsContainer.querySelectorAll('.option');
+  buttons.forEach(b => b.classList.add('locked'));
+  if(i === q.correct_index){
+    buttons[i].classList.add('correct');
+    session.correct++;
+  } else {
+    buttons[i].classList.add('wrong');
+    buttons[q.correct_index].classList.add('correct');
+    session.wrong++;
+  }
+  buttons.forEach(b => b.onclick = null);
+  document.getElementById('next-btn').style.display = 'inline-block';
+}
+
+function nextOrShowNext(){
+  document.getElementById('self-mark').classList.remove('show');
+  document.getElementById('next-btn').style.display = 'inline-block';
+}
+
+document.getElementById('next-btn').onclick = () => {
+  session.idx++;
+  if(session.idx >= session.questions.length){
+    showResult();
+  } else {
+    renderQuestion();
+  }
+};
+
+document.getElementById('exit-link').onclick = () => showView('view-topics');
+document.getElementById('back-btn').onclick = () => showView('view-topics');
+document.getElementById('retry-btn').onclick = () => startTopic(session.topic);
+
+function showResult(){
+  showView('view-result');
+  const total = session.questions.length;
+  document.getElementById('result-score').textContent = `${session.correct}/${total}`;
+  const pct = Math.round((session.correct/total)*100);
+  let msg;
+  if(pct >= 85) msg = 'Mükemmel! Bu konuyu iyi biliyorsun.';
+  else if(pct >= 60) msg = 'İyi gidiyorsun, birkaç tekrar daha faydalı olur.';
+  else msg = 'Bu konuyu tekrar çalışmanda fayda var.';
+  document.getElementById('result-detail').textContent = `${session.topic} — ${msg}`;
+}
+
+init();
+</script>
+</body>
+</html>
